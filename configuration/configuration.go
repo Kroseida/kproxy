@@ -2,12 +2,25 @@ package configuration
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
+type ServerConfiguration struct {
+	BindHost string
+}
+
+type HostsResolverConfiguration struct {
+	Source string
+	Configuration map[string]string
+}
+
+type Configuration struct {
+	Server ServerConfiguration
+	HostResolver HostsResolverConfiguration
+}
 
 type ProxyConfiguration struct {
 	To []string
@@ -18,12 +31,30 @@ type HostConfiguration struct {
 	Proxy ProxyConfiguration
 }
 
-type FileHostConfigurationProvider struct {
+type Provider struct {
+
 }
 
-func (c FileHostConfigurationProvider) LoadHostsFromConfiguration() []HostConfiguration {
+func (c Provider) LoadConfiguration() Configuration {
+	configFile := "configuration.json"
+	args := os.Args[1:]
+	if len(args) >= 1 {
+		configFile = args[0]
+	}
+	jsonFile, err := os.Open(configFile)
+	if err != nil {
+		panic(err)
+	}
+	byteValue, _ := ioutil.ReadAll(jsonFile)
+	var configuration Configuration
+	json.Unmarshal(byteValue, &configuration)
+	jsonFile.Close()
+	return configuration
+}
+
+func (c Provider) LoadHostsFromFile(configuration Configuration) []HostConfiguration {
 	var files []string
-	err := filepath.Walk("hosts", func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(configuration.HostResolver.Configuration["path"], func(path string, info os.FileInfo, err error) error {
 		files = append(files, path)
 		return nil
 	})
@@ -37,7 +68,7 @@ func (c FileHostConfigurationProvider) LoadHostsFromConfiguration() []HostConfig
 		}
 		jsonFile, err := os.Open(file)
 		if err != nil {
-			fmt.Println(err)
+			panic(err)
 		}
 		byteValue, _ := ioutil.ReadAll(jsonFile)
 		var host HostConfiguration

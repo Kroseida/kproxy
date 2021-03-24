@@ -15,23 +15,25 @@ type ReverseProxy struct {
 }
 
 var domainToConfigurationMap map[string]*ReverseProxy
-var configurationProvider configuration.FileHostConfigurationProvider
+var configurationProvider configuration.Provider
+var config configuration.Configuration
 
 func main() {
 	http.HandleFunc("/", handler())
-
 	domainToConfigurationMap = make(map[string]*ReverseProxy)
 	loadConfigurations()
-	err := http.ListenAndServe(":80", nil)
+	err := http.ListenAndServe(config.Server.BindHost, nil)
 	if err != nil {
 		panic(err)
 	}
 }
 
 func loadConfigurations() {
-	configurationProvider := configuration.FileHostConfigurationProvider{}
-	// Json File Configuration /hosts/default.json
-	applyHosts(configurationProvider.LoadHostsFromConfiguration())
+	configurationProvider = configuration.Provider{}
+	config = configurationProvider.LoadConfiguration()
+	if strings.ToLower(config.HostResolver.Source) == "local" {
+		applyHosts(configurationProvider.LoadHostsFromFile(config))
+	}
 }
 
 func applyHosts(hosts []configuration.HostConfiguration) {
