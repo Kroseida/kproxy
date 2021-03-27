@@ -9,6 +9,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
+	"time"
 )
 
 type ReverseProxy struct {
@@ -47,15 +48,23 @@ func loadConfigurations() {
 	configurationProvider = configuration.Provider{}
 	config = configurationProvider.LoadConfiguration()
 	if strings.ToLower(config.HostResolver.Source) == "local" {
-		applyHosts(configurationProvider.LoadHostsFromFile(config))
+		applyHosts(configurationProvider.LoadHostsFromFile(config), domainToConfigurationMap)
 	} else if strings.ToLower(config.HostResolver.Source) == "kubernetes/calico" {
-		applyHosts(configurationProvider.LoadHostsFromKubernetes(config))
+		go func() {
+			for true {
+				// Reload from kubernetes
+				domainToConfigurationMapTemp := make(map[string]*ReverseProxy)
+				applyHosts(configurationProvider.LoadHostsFromKubernetes(config), domainToConfigurationMapTemp)
+				domainToConfigurationMap = domainToConfigurationMapTemp
+				time.Sleep(1 * time.Minute)
+			}
+		}()
 	}
 }
 
-func applyHosts(hosts []configuration.HostConfiguration) {
+func applyHosts(hosts []configuration.HostConfiguration, proxyMap map[string]*ReverseProxy) {
 	for _, host := range hosts {
-		domainToConfigurationMap[host.Domain] = parseHostToProxy(host)
+		proxyMap[host.Domain] = parseHostToProxy(host)
 	}
 }
 
