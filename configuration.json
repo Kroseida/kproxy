@@ -1,0 +1,12 @@
+{
+  "server": {
+    "bindHost": ":8081"
+  },
+  "hostResolver": {
+    "source": "kubernetes_calico",
+    "configuration": {
+      "kubeconfig": "config",
+      "namespace": "kroseida"
+    }
+  }
+}

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"kproxy/configuration"
+	"kproxy/cmd/kproxy/configuration"
 	"math/rand"
 	"net/http"
 	"net/http/httputil"
@@ -33,6 +33,8 @@ func loadConfigurations() {
 	config = configurationProvider.LoadConfiguration()
 	if strings.ToLower(config.HostResolver.Source) == "local" {
 		applyHosts(configurationProvider.LoadHostsFromFile(config))
+	} else if strings.ToLower(config.HostResolver.Source) == "kubernetes_calico" {
+		applyHosts(configurationProvider.LoadHostsFromKubernetes(config))
 	}
 }
 
