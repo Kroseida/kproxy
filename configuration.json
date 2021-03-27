@@ -1,9 +1,23 @@
 {
   "server": {
-    "bindHost": ":8081"
+    "bindHost": ":80",
+    "tls": {
+      "active": true,
+      "bindHost": ":443",
+      "certificates": {
+        "grafana.kroseida.org": {
+          "cert": "test",
+          "key": "test"
+        },
+        "localhost": {
+          "cert": "test",
+          "key": "test"
+        }
+      }
+    }
   },
   "hostResolver": {
-    "source": "kubernetes_calico",
+    "source": "kubernetes/calico",
     "configuration": {
       "kubeconfig": "config",
       "namespace": "kroseida"

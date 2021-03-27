@@ -14,8 +14,20 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+type CertificateLocation struct {
+	Cert string
+	Key string
+}
+
+type TlsServerConfiguration struct {
+	Active bool
+	BindHost string
+	Certificates map[string]CertificateLocation
+}
+
 type ServerConfiguration struct {
 	BindHost string
+	Tls TlsServerConfiguration
 }
 
 type HostsResolverConfiguration struct {
