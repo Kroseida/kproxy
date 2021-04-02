@@ -21,12 +21,15 @@ type CertificateLocation struct {
 
 type TlsServerConfiguration struct {
 	Active bool
+	RedirectHttp bool
 	BindHost string
+	BindPort int
 	Certificates map[string]CertificateLocation
 }
 
 type ServerConfiguration struct {
 	BindHost string
+	BindPort int
 	Tls TlsServerConfiguration
 }
 
@@ -54,7 +57,7 @@ type Provider struct {
 }
 
 func (c Provider) LoadConfiguration() Configuration {
-	configFile := "configuration.json"
+	configFile := "/etc/kproxy/configuration.json"
 	args := os.Args[1:]
 	if len(args) >= 1 {
 		configFile = args[0]
@@ -98,7 +101,7 @@ func (c Provider) LoadHostsFromFile(configuration Configuration) []HostConfigura
 }
 
 func (c Provider) LoadHostsFromKubernetes(configuration Configuration) []HostConfiguration {
-	namespace := configuration.HostResolver.Configuration["namespace"]
+	namespace := strings.Split(configuration.HostResolver.Configuration["namespace"], ";")
 	hosts := make([]HostConfiguration, 0)
 	config, err := clientcmd.BuildConfigFromFlags("", configuration.HostResolver.Configuration["kubeconfig"])
 	if err != nil {
@@ -108,30 +111,32 @@ func (c Provider) LoadHostsFromKubernetes(configuration Configuration) []HostCon
 	if err != nil {
 		panic(err.Error())
 	}
-	pods, err := client.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		panic(err.Error())
-	}
-	addressProxyMapping := make(map[string][]string)
 	fmt.Println("Resolving Reverse Proxy Data from Kubernetes: ")
-	for _, pod := range pods.Items {
-		if _, exists := pod.Annotations["kproxy/targetDomain"]; !exists {
-			continue
+	for _, n := range namespace {
+		pods, err := client.CoreV1().Pods(n).List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			panic(err.Error())
 		}
-		protocol := pod.Annotations["kproxy/sourceProtocol"]
-		address := protocol + "://" + strings.Split(pod.Annotations["cni.projectcalico.org/podIP"], "/")[0]
-		address += ":" + pod.Annotations["kproxy/sourcePort"]
-		fmt.Println("  - " + pod.Annotations["kproxy/targetDomain"] + " > " + address)
-		addressProxyMapping[pod.Annotations["kproxy/targetDomain"]] = append(addressProxyMapping[pod.Annotations["kproxy/targetDomain"]], address)
+		addressProxyMapping := make(map[string][]string)
+		for _, pod := range pods.Items {
+			if _, exists := pod.Annotations["kproxy/targetDomain"]; !exists {
+				continue
+			}
+			protocol := pod.Annotations["kproxy/sourceProtocol"]
+			address := protocol + "://" + strings.Split(pod.Annotations["cni.projectcalico.org/podIP"], "/")[0]
+			address += ":" + pod.Annotations["kproxy/sourcePort"]
+			fmt.Println("  - " + pod.Annotations["kproxy/targetDomain"] + " > " + address)
+			addressProxyMapping[pod.Annotations["kproxy/targetDomain"]] = append(addressProxyMapping[pod.Annotations["kproxy/targetDomain"]], address)
+		}
+		for k, v := range addressProxyMapping {
+			hosts = append(hosts, HostConfiguration{
+				Domain: k,
+				Proxy: ProxyConfiguration {
+					To: v,
+				},
+			})
+		}
 	}
 	fmt.Println("done")
-	for k, v := range addressProxyMapping {
-		hosts = append(hosts, HostConfiguration{
-			Domain: k,
-			Proxy: ProxyConfiguration {
-				To: v,
-			},
-		})
-	}
 	return hosts
 }

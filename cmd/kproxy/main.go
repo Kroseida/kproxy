@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -31,14 +32,14 @@ func main() {
 		tls := &tls.Config{}
 		tls.GetCertificate = resolveCertificate()
 		server := http.Server{
-			Addr:      config.Server.Tls.BindHost,
+			Addr:      config.Server.Tls.BindHost + ":" + strconv.Itoa(config.Server.Tls.BindPort),
 			Handler:   nil,
 			TLSConfig: tls,
 		}
 		go server.ListenAndServeTLS("", "")
 	}
 
-	err := http.ListenAndServe(config.Server.BindHost, nil)
+	err := http.ListenAndServe(config.Server.BindHost + ":" + strconv.Itoa(config.Server.BindPort), nil)
 	if err != nil {
 		panic(err)
 	}
@@ -98,12 +99,11 @@ func handler() func(http.ResponseWriter, *http.Request) {
 			hasTls = false
 		}
 
-		if r.TLS == nil && hasTls {
-			w.Header().Add("Location", "https://" + domain)
+		if r.TLS == nil && hasTls && config.Server.Tls.RedirectHttp {
+			w.Header().Add("Location", "https://" + domain + ":" + strconv.Itoa(config.Server.Tls.BindPort) + r.URL.Path)
 			w.WriteHeader(301)
 			return
 		}
-
 		proxy.httpProxy[rand.Intn(len(proxy.httpProxy))].ServeHTTP(w, r)
 	}
 }

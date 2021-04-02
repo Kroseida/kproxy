@@ -1,22 +1,19 @@
 {
   "server": {
-    "bindHost": ":80",
+    "bindHost": "127.0.0.1",
+    "bindPort": 80,
     "tls": {
-      "active": true,
-      "bindHost": ":443",
-      "certificates": {
-        "grafana.kroseida.org": {
-          "cert": "cert.pem",
-          "key": "privkey.pem"
-        }
-      }
+      "active": false,
+      "redirectHttp": true,
+      "bindHost": "127.0.0.1",
+      "bindPort": 443,
+      "certificates": {}
     }
   },
   "hostResolver": {
-    "source": "kubernetes/calico",
+    "source": "local",
     "configuration": {
-      "kubeconfig": "config",
-      "namespace": "kroseida"
+      "path": "/etc/kproxy/hosts/"
     }
   }
 }
